@@ -64,7 +64,7 @@ function beehiiv_integration_setup_settings_page() {
 }
 add_action('admin_menu', 'beehiiv_integration_setup_settings_page');
 
-// Render the settings page
+// Render the settings' page
 function beehiiv_api_integration_render_settings_page() {
     ?>
     <div class="wrap">
@@ -76,10 +76,16 @@ function beehiiv_api_integration_render_settings_page() {
             submit_button('Salvar');
             ?>
         </form>
+
+        <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
+            <input type="hidden" name="action" value="integrar_beehiiv">
+            <input type="submit" value="Rodar Integração">
+        </form>
+
     </div>
     <?php
 }
-
+add_action( 'admin_post_integrar_beehiiv', 'beehiiv_api_integration_process_data' );
 // Register the API key setting
 function beehiiv_api_integration_register_settings() {
     add_settings_section(
@@ -97,9 +103,30 @@ function beehiiv_api_integration_register_settings() {
         'beehiiv-api-integration-api-key'
     );
 
+    add_settings_section(
+        'beehiiv-api-integration-publication-id',
+        'Publication ID',
+        'beehiiv_api_integration_render_publication_id_section',
+        'beehiiv-api-integration-settings'
+    );
+
+    add_settings_field(
+        'beehiiv-api-integration-publication-id-field',
+        'Publication ID',
+        'beehiiv_api_integration_render_publication_id_field',
+        'beehiiv-api-integration-settings',
+        'beehiiv-api-integration-publication-id'
+    );
+
+
     register_setting(
         'beehiiv-api-integration-settings',
         'beehiiv-api-integration-api-key'
+    );
+
+    register_setting(
+        'beehiiv-api-integration-settings',
+        'beehiiv-api-integration-publication-id'
     );
 }
 add_action('admin_init', 'beehiiv_api_integration_register_settings');
@@ -109,17 +136,28 @@ function beehiiv_api_integration_render_api_key_section() {
     echo '<p>Insira a chave da API abaixo.</p>';
 }
 
+function beehiiv_api_integration_render_publication_id_section() {
+    echo '<p>Insira o ID da Publication abaixo.</p>';
+}
+
 // Render the API key field
 function beehiiv_api_integration_render_api_key_field() {
     $api_key = get_option('beehiiv-api-integration-api-key');
     echo '<input type="text" name="beehiiv-api-integration-api-key" value="' . esc_attr($api_key) . '" />';
 }
 
+// Render the API key field
+function beehiiv_api_integration_render_publication_id_field() {
+    $publication_id = get_option('beehiiv-api-integration-publication-id');
+    echo '<input type="text" name="beehiiv-api-integration-publication-id" value="' . esc_attr($publication_id) . '" />';
+}
+
 // Fetch data from the API
 function beehiiv_api_integration_fetch_data() {
     $api_key = get_option('beehiiv-api-integration-api-key');
+    $publication_id = get_option('beehiiv-api-integration-publication-id');
 
-    $url = 'https://api.beehiiv.com/v2';
+    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100';
 
     $headers = array(
         'Authorization' => 'Bearer ' . $api_key,
@@ -154,18 +192,16 @@ function beehiiv_api_integration_process_data() {
     foreach ($data as $item) {
         $existing_post_id = beehiiv_api_integration_find_existing_post($item['id']);
 
-        if ($existing_post_id) {
-            beehiiv_api_integration_update_post($existing_post_id, $item);
-        } else {
+        if ( ! $existing_post_id ) {
             beehiiv_api_integration_create_post($item);
-        }
+        } 
     }
 }
 
 // Find an existing post by its external ID
 function beehiiv_api_integration_find_existing_post($external_id) {
     $query = new WP_Query(array(
-        'post_type' => 'beehiiv_post_type',
+        'post_type' => 'beehiiv_post',
         'meta_key' => 'external_id',
         'meta_value' => $external_id
     ));
@@ -178,26 +214,14 @@ function beehiiv_api_integration_find_existing_post($external_id) {
     }
 }
 
-// Update an existing post with new data
-function beehiiv_api_integration_update_post($post_id, $data) {
-    $post_data = array(
-        'ID' => $post_id,
-        'post_title' => $data['title'],
-        'post_content' => $data['content']
-    );
-
-    wp_update_post($post_data);
-
-    update_post_meta($post_id, 'external_id', $data['id']);
-}
 
 // Create a new post with the given data
 function beehiiv_api_integration_create_post($data) {
     $post_data = array(
         'post_title' => $data['title'],
-        'post_content' => $data['content'],
+        'post_content' => $data['subtitle'],
         'post_status' => 'publish',
-        'post_type' => 'beehiiv_post_type'
+        'post_type' => 'beehiiv_post'
     );
 
     $post_id = wp_insert_post($post_data);
