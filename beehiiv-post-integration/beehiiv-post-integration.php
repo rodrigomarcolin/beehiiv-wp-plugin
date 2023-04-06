@@ -212,8 +212,6 @@ function beehiiv_api_integration_fetch_single_post_data($post_id) {
     $publication_id = get_option('beehiiv-api-integration-publication-id');
 
     $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts' . '/' . $post_id . '?expand=free_rss_content';
-    write_log("FGHDJG");
-    write_log($url);
 
     $headers = array(
         'Authorization' => 'Bearer ' . $api_key,
@@ -233,10 +231,13 @@ function beehiiv_api_integration_fetch_single_post_data($post_id) {
     $body = wp_remote_retrieve_body($response);
 
     $data = json_decode($body, true);
-    write_log("FGHDJG");
-    write_log($body);
+
     return $data['data'];
 }
+
+// Schedule the event to run every 5 minutes
+add_action('beehiiv_integration_cron_hook', 'beehiiv_api_integration_fetch_data');
+wp_schedule_event(time(), '5_minutes', 'beehiiv_integration_cron_hook');
 
 // Fetch data from the API
 function beehiiv_api_integration_fetch_data() {
