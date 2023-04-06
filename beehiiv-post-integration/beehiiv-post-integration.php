@@ -243,9 +243,7 @@ function beehiiv_api_integration_fetch_data() {
     $api_key = get_option('beehiiv-api-integration-api-key');
     $publication_id = get_option('beehiiv-api-integration-publication-id');
 
-    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100';
-    write_log("FGHDJG");
-    write_log($url);
+    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100&status=confirmed';
     $headers = array(
         'Authorization' => 'Bearer ' . $api_key,
         'Content-Type' => 'application/json'
