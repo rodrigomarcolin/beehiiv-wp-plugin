@@ -1,16 +1,28 @@
 <?php
 /*
 Plugin Name: beehiiv API Integration
-Plugin URI: https://example.com/
-Description: A beehiiv WordPress plugin for integrating with an API.
+Description: A WordPress plugin for integrating with Beehiiv API.
 Version: 1.0.0
-Author: Your Name
-Author URI: https://example.com/
+Author: Rodrigo Marcolin (with great help from CHAT GPT)
 */
 
 // If this file is called directly, abort.
 if ( !defined( 'ABSPATH' ) ) {
     die( 'We\'re sorry, but you can not directly access this file.' );
+}
+
+if (!function_exists('write_log')) {
+
+    function write_log($log) {
+        if (true === WP_DEBUG) {
+            if (is_array($log) || is_object($log)) {
+                error_log(print_r($log, true));
+            } else {
+                error_log($log);
+            }
+        }
+    }
+
 }
 /*
 * Activate the plugin.
@@ -131,6 +143,49 @@ function beehiiv_api_integration_register_settings() {
 }
 add_action('admin_init', 'beehiiv_api_integration_register_settings');
 
+function upload_image_from_url($image_url) {
+    // Check if the image URL is valid
+    if (filter_var($image_url, FILTER_VALIDATE_URL) === false) {
+        return false;
+    }
+
+    // Get the file name and extension from the image URL
+    $file_name = basename($image_url);
+    $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+
+    // Generate a unique file name for the uploaded image
+    $file_name_new = uniqid() . '.' . $file_extension;
+
+    // Get the wp-content/uploads directory path
+    $upload_dir = wp_upload_dir();
+
+    // Define the file path and URL for the uploaded image
+    $file_path = $upload_dir['path'] . '/' . $file_name_new;
+    $file_url = $upload_dir['url'] . '/' . $file_name_new;
+
+    // Download the image from the URL and save it to the file path
+    $image_data = file_get_contents($image_url);
+    file_put_contents($file_path, $image_data);
+
+    // Create the attachment array for the uploaded image
+    $attachment = array(
+        'post_mime_type' => wp_check_filetype($file_name_new)['type'],
+        'post_title' => sanitize_file_name($file_name_new),
+        'post_content' => '',
+        'post_status' => 'inherit'
+    );
+
+    // Insert the attachment into the WordPress media library
+    $attachment_id = wp_insert_attachment($attachment, $file_path);
+
+    // Generate metadata for the attachment and update the database record
+    $attachment_data = wp_generate_attachment_metadata($attachment_id, $file_path);
+    wp_update_attachment_metadata($attachment_id, $attachment_data);
+
+    // Return the attachment ID
+    return $attachment_id;
+}
+
 // Render the API key section
 function beehiiv_api_integration_render_api_key_section() {
     echo '<p>Insira a chave da API abaixo.</p>';
@@ -152,12 +207,13 @@ function beehiiv_api_integration_render_publication_id_field() {
     echo '<input type="text" name="beehiiv-api-integration-publication-id" value="' . esc_attr($publication_id) . '" />';
 }
 
-// Fetch data from the API
-function beehiiv_api_integration_fetch_data() {
+function beehiiv_api_integration_fetch_single_post_data($post_id) {
     $api_key = get_option('beehiiv-api-integration-api-key');
     $publication_id = get_option('beehiiv-api-integration-publication-id');
 
-    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100';
+    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts' . '/' . $post_id . '?expand=free_rss_content';
+    write_log("FGHDJG");
+    write_log($url);
 
     $headers = array(
         'Authorization' => 'Bearer ' . $api_key,
@@ -177,8 +233,39 @@ function beehiiv_api_integration_fetch_data() {
     $body = wp_remote_retrieve_body($response);
 
     $data = json_decode($body, true);
+    write_log("FGHDJG");
+    write_log($body);
+    return $data['data'];
+}
 
-    return $data;
+// Fetch data from the API
+function beehiiv_api_integration_fetch_data() {
+    $api_key = get_option('beehiiv-api-integration-api-key');
+    $publication_id = get_option('beehiiv-api-integration-publication-id');
+
+    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100';
+    write_log("FGHDJG");
+    write_log($url);
+    $headers = array(
+        'Authorization' => 'Bearer ' . $api_key,
+        'Content-Type' => 'application/json'
+    );
+
+    $args = array(
+        'headers' => $headers
+    );
+
+    $response = wp_remote_get($url, $args);
+
+    if (is_wp_error($response)) {
+        return null;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+
+    $data = json_decode($body, true);
+
+    return $data['data'];
 }
 
 // Process the data and create or update beehiiv posts
@@ -193,7 +280,8 @@ function beehiiv_api_integration_process_data() {
         $existing_post_id = beehiiv_api_integration_find_existing_post($item['id']);
 
         if ( ! $existing_post_id ) {
-            beehiiv_api_integration_create_post($item);
+            $post_dt = beehiiv_api_integration_fetch_single_post_data($item['id']);
+            beehiiv_api_integration_create_post($post_dt);
         } 
     }
 }
@@ -217,14 +305,17 @@ function beehiiv_api_integration_find_existing_post($external_id) {
 
 // Create a new post with the given data
 function beehiiv_api_integration_create_post($data) {
+    
     $post_data = array(
         'post_title' => $data['title'],
-        'post_content' => $data['subtitle'],
+        'post_content' => $data['content']['free']['rss'],
+        'post_excerpt' => $data['subtitle'],
+        'post_date' => wp_date('Y-m-d H:i:s', $data['publish_date']),
         'post_status' => 'publish',
         'post_type' => 'beehiiv_post'
     );
 
     $post_id = wp_insert_post($post_data);
-
+    set_post_thumbnail( $post_id , upload_image_from_url($data['thumbnail_url']) );
     update_post_meta($post_id, 'external_id', $data['id']);
 }
