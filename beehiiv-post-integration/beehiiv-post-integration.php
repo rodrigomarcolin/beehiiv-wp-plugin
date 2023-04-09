@@ -178,10 +178,6 @@ function upload_image_from_url($image_url) {
     // Insert the attachment into the WordPress media library
     $attachment_id = wp_insert_attachment($attachment, $file_path);
 
-    // Generate metadata for the attachment and update the database record
-    $attachment_data = wp_generate_attachment_metadata($attachment_id, $file_path);
-    wp_update_attachment_metadata($attachment_id, $attachment_data);
-
     // Return the attachment ID
     return $attachment_id;
 }
@@ -235,9 +231,19 @@ function beehiiv_api_integration_fetch_single_post_data($post_id) {
     return $data['data'];
 }
 
+function add_custom_cron_interval( $schedules ) {
+    $schedules['five_minutes'] = array(
+        'interval' => 300,
+        'display'  => __( 'Every Five Minutes' )
+    );
+    return $schedules;
+}
+add_filter( 'cron_schedules', 'add_custom_cron_interval' );
+
+
 // Schedule the event to run every 5 minutes
-add_action('beehiiv_integration_cron_hook', 'beehiiv_api_integration_fetch_data');
-wp_schedule_event(time(), '5_minutes', 'beehiiv_integration_cron_hook');
+add_action('beehiiv_integration_cron_hook', 'beehiiv_api_integration_process_data');
+wp_schedule_event(time(), 'five_minutes', 'beehiiv_integration_cron_hook');
 
 // Fetch data from the API
 function beehiiv_api_integration_fetch_data() {
@@ -276,7 +282,7 @@ function beehiiv_api_integration_process_data() {
     }
 
     foreach ($data as $item) {
-        $existing_post_id = beehiiv_api_integration_find_existing_post($item['id']);
+        $existing_post_id = beehiiv_api_integration_find_existing_post($item);
 
         if ( ! $existing_post_id ) {
             $post_dt = beehiiv_api_integration_fetch_single_post_data($item['id']);
@@ -286,11 +292,22 @@ function beehiiv_api_integration_process_data() {
 }
 
 // Find an existing post by its external ID
-function beehiiv_api_integration_find_existing_post($external_id) {
+function beehiiv_api_integration_find_existing_post($item) {
     $query = new WP_Query(array(
         'post_type' => 'beehiiv_post',
         'meta_key' => 'external_id',
-        'meta_value' => $external_id
+        'meta_value' => $item['id']
+    ));
+
+    if ($query->have_posts()) {
+        $post = $query->posts[0];
+        return $post->ID;
+    } 
+    
+    $query = new WP_Query(array(
+        'post_type' => 'beehiiv_post',
+        'post_title' => $item['title'],
+        'post_status' => 'future'
     ));
 
     if ($query->have_posts()) {
