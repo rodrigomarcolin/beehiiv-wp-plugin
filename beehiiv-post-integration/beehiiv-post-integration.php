@@ -231,10 +231,11 @@ function beehiiv_api_integration_fetch_single_post_data($post_id) {
     return $data['data'];
 }
 
+
 function add_custom_cron_interval( $schedules ) {
-    $schedules['five_minutes'] = array(
-        'interval' => 300,
-        'display'  => __( 'Every Five Minutes' )
+    $schedules['two_minutes'] = array(
+        'interval' => 120,
+        'display'  => __( 'Every Five Seconds' )
     );
     return $schedules;
 }
@@ -243,7 +244,7 @@ add_filter( 'cron_schedules', 'add_custom_cron_interval' );
 
 // Schedule the event to run every 5 minutes
 add_action('beehiiv_integration_cron_hook', 'beehiiv_api_integration_process_data');
-wp_schedule_event(time(), 'five_minutes', 'beehiiv_integration_cron_hook');
+wp_schedule_event(time(), 'two_minutes', 'beehiiv_integration_cron_hook');
 
 // Fetch data from the API
 function beehiiv_api_integration_fetch_data() {
@@ -287,7 +288,7 @@ function beehiiv_api_integration_process_data() {
         if ( ! $existing_post_id ) {
             $post_dt = beehiiv_api_integration_fetch_single_post_data($item['id']);
             beehiiv_api_integration_create_post($post_dt);
-        } 
+        } 	
     }
 }
 
@@ -298,18 +299,10 @@ function beehiiv_api_integration_find_existing_post($item) {
         'meta_key' => 'external_id',
         'meta_value' => $item['id']
     ));
-
-    if ($query->have_posts()) {
-        $post = $query->posts[0];
-        return $post->ID;
-    } 
-    
-    $query = new WP_Query(array(
-        'post_type' => 'beehiiv_post',
-        'post_title' => $item['title'],
-        'post_status' => 'future'
-    ));
-
+	
+    if ($item['publish_date'] > time()) {
+    	return true;
+    }
     if ($query->have_posts()) {
         $post = $query->posts[0];
         return $post->ID;
@@ -330,7 +323,7 @@ function beehiiv_api_integration_create_post($data) {
         'post_status' => 'publish',
         'post_type' => 'beehiiv_post'
     );
-
+    
     $post_id = wp_insert_post($post_data);
     set_post_thumbnail( $post_id , upload_image_from_url($data['thumbnail_url']) );
     update_post_meta($post_id, 'external_id', $data['id']);
