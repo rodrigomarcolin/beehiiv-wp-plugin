@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: beehiiv API Integration
+Plugin Name: Beehiiv API Integration
 Description: A WordPress plugin for integrating with Beehiiv API.
 Version: 1.0.0
 Author: Rodrigo Marcolin (with great help from CHAT GPT)
@@ -39,7 +39,7 @@ function beehiiv_setup_post_type() {
 
     $args = array(
         'label'                 => __( 'Beehiiv Post', 'text_domain' ),
-        'description'           => __( 'Post da BeeHiiv', 'text_domain' ),
+        'description'           => __( 'BeeHiiv Post', 'text_domain' ),
         'labels'                => $labels,
         'supports'              => array( 'title', 'editor', 'thumbnail', '' ),
         'taxonomies'            => array( 'category', 'post_tag' ),
@@ -67,8 +67,8 @@ register_activation_hook( __FILE__, 'beehiiv_integration_setup_settings_page' );
 // Register the settings page
 function beehiiv_integration_setup_settings_page() {
     add_options_page(
-        'Configurações de Integração com a BeeHiiv',
-        'Integração à BeeHiiv via API',
+        'BeeHiiv Integration Settings',
+        'BeeHiiv API Integration',
         'manage_options',
         'beehiiv-api-integration-settings',
         'beehiiv_api_integration_render_settings_page'
@@ -80,7 +80,7 @@ add_action('admin_menu', 'beehiiv_integration_setup_settings_page');
 function beehiiv_api_integration_render_settings_page() {
     ?>
     <div class="wrap">
-        <h1>Configurações da Integração da Beehiiv via API</h1>
+        <h1>BeeHiiv API Integration Settings</h1>
         <form action="options.php" method="post">
             <?php
             settings_fields('beehiiv-api-integration-settings');
@@ -91,7 +91,7 @@ function beehiiv_api_integration_render_settings_page() {
 
         <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
             <input type="hidden" name="action" value="integrar_beehiiv">
-            <input type="submit" value="Rodar Integração">
+            <input class="button button-primary" type="submit" value="Trigger Integration">
         </form>
 
     </div>
@@ -184,11 +184,11 @@ function upload_image_from_url($image_url) {
 
 // Render the API key section
 function beehiiv_api_integration_render_api_key_section() {
-    echo '<p>Insira a chave da API abaixo.</p>';
+    echo '<p>Type API key below.</p>';
 }
 
 function beehiiv_api_integration_render_publication_id_section() {
-    echo '<p>Insira o ID da Publication abaixo.</p>';
+    echo '<p>Type the Publication ID below.</p>';
 }
 
 // Render the API key field
