@@ -41,7 +41,7 @@ function beehiiv_setup_post_type() {
         'label'                 => __( 'Beehiiv Post', 'text_domain' ),
         'description'           => __( 'BeeHiiv Post', 'text_domain' ),
         'labels'                => $labels,
-        'supports'              => array( 'title', 'editor', 'thumbnail', '' ),
+        'supports'              => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
         'taxonomies'            => array( 'category', 'post_tag' ),
         'public'                => true,
         'show_ui'               => true,
