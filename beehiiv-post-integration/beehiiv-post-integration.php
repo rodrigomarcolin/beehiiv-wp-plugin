@@ -56,6 +56,13 @@ function beehiiv_setup_post_type() {
 }
 
 add_action( 'init', 'beehiiv_setup_post_type', 0 );
+
+function custom_post_type_in_main_rss_feed($query) {
+    if ($query->is_main_query() && $query->is_feed()) {
+        $query->set('post_type', array('post', 'beehiiv_post'));
+    }
+}
+add_action('pre_get_posts', 'custom_post_type_in_main_rss_feed');
 function beehiv_post_integration_activate() {
     // Trigger our function that registers the beehiiv post type plugin.
     beehiiv_setup_post_type();
