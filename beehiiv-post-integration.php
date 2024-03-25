@@ -2,13 +2,13 @@
 /*
 Plugin Name: Beehiiv API Integration
 Description: A WordPress plugin for integrating with Beehiiv API.
-Version: 1.0.0
+Version: 2.0.0
 Author: Rodrigo Marcolin (with great help from CHAT GPT)
 */
 
 // If this file is called directly, abort.
 if (!defined('ABSPATH')) {
-    die('We\'re sorry, but you can not directly access this file.');
+    die ('We\'re sorry, but you can not directly access this file.');
 }
 
 if (!function_exists('write_log')) {
@@ -271,7 +271,7 @@ function beehiiv_api_integration_fetch_data()
     $api_key = get_option('beehiiv-api-integration-api-key');
     $publication_id = get_option('beehiiv-api-integration-publication-id');
 
-    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100&status=confirmed';
+    $url = 'https://api.beehiiv.com/v2/publications/' . $publication_id . '/posts?limit=100&status=confirmed&order_by=publish_date&direction=desc&limit=10';
     $headers = array(
         'Authorization' => 'Bearer ' . $api_key,
         'Content-Type' => 'application/json'
@@ -336,13 +336,22 @@ function beehiiv_api_integration_find_existing_post($item)
 }
 
 
+
+function remove_style_tag($content)
+{
+    // Remove style tag and its content
+    $content = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $content);
+
+    return $content;
+}
+
 // Create a new post with the given data
 function beehiiv_api_integration_create_post($data)
 {
 
     $post_data = array(
         'post_title' => $data['title'],
-        'post_content' => $data['content']['free']['rss'],
+        'post_content' => remove_style_tag($data['content']['free']['rss']),
         'post_excerpt' => $data['subtitle'],
         'post_date' => wp_date('Y-m-d H:i:s', $data['publish_date']),
         'post_status' => 'publish',
@@ -354,3 +363,4 @@ function beehiiv_api_integration_create_post($data)
     set_post_thumbnail($post_id, upload_image_from_url($data['thumbnail_url']));
     update_post_meta($post_id, 'external_id', $data['id']);
 }
+
